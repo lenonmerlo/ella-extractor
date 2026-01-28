@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from io import BytesIO
@@ -13,6 +14,19 @@ from parsers.itau_personnalite import parse_itau_personnalite as parse_itau_pers
 
 
 app = FastAPI(title="ELLA PDF Extractor (Local Test Service)")
+
+
+logger = logging.getLogger("ella-extractor")
+
+
+def _looks_like_pdf(pdf_bytes: bytes) -> bool:
+    if not pdf_bytes:
+        return False
+    # Cheap heuristics: PDF header + EOF marker (some PDFs have whitespace after EOF).
+    if not pdf_bytes.startswith(b"%PDF-"):
+        return False
+    tail = pdf_bytes[-2048:] if len(pdf_bytes) > 2048 else pdf_bytes
+    return b"%%EOF" in tail
 
 
 _CID_TOKEN_RE = re.compile(r"\(cid:\d+\)")
@@ -206,6 +220,12 @@ async def extract_itau_personnalite(
         raise HTTPException(status_code=400, detail="Invalid content-type. Expected application/pdf")
 
     pdf_bytes = await file.read()
+    logger.info(
+        "[extract/itau-personnalite] filename=%s content_type=%s bytes=%d",
+        file.filename,
+        file.content_type,
+        len(pdf_bytes) if pdf_bytes else 0,
+    )
     if not pdf_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
 
@@ -222,6 +242,8 @@ async def extract_itau_personnalite(
                 page_texts.append(extracted)
     except Exception as exc:  # pragma: no cover
         notes.append(f"pdfplumber_error:{type(exc).__name__}")
+        if _looks_like_pdf(pdf_bytes):
+            raise HTTPException(status_code=422, detail={"reason": "UNREADABLE_PDF", "message": "Failed to read PDF"})
         raise HTTPException(status_code=400, detail="Failed to read PDF")
 
     full_text = normalize_extracted_text("\n\n".join(page_texts))
@@ -261,6 +283,12 @@ async def parse_itau_personnalite(
         raise HTTPException(status_code=400, detail="Invalid content-type. Expected application/pdf")
 
     pdf_bytes = await file.read()
+    logger.info(
+        "[parse/itau-personnalite] filename=%s content_type=%s bytes=%d",
+        file.filename,
+        file.content_type,
+        len(pdf_bytes) if pdf_bytes else 0,
+    )
     if not pdf_bytes:
         raise HTTPException(status_code=400, detail="Empty file")
 
@@ -271,6 +299,8 @@ async def parse_itau_personnalite(
                 extracted, _method = extract_page_text(page)
                 page_texts.append(extracted)
     except Exception:
+        if _looks_like_pdf(pdf_bytes):
+            raise HTTPException(status_code=422, detail={"reason": "UNREADABLE_PDF", "message": "Failed to read PDF"})
         raise HTTPException(status_code=400, detail="Failed to read PDF")
 
     raw_text = "\n\n".join(page_texts)
@@ -280,6 +310,8 @@ async def parse_itau_personnalite(
     fixture_path.write_text(raw_text, encoding="utf-8")
 
     result, warnings, debug = parse_itau_personnalite_text(raw_text)
+    if not result.get("transactions"):
+        result["reason"] = "UNSUPPORTED_LAYOUT"
     # include filename for convenience in local testing
     result["filename"] = file.filename
     return result
