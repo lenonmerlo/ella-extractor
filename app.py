@@ -11,6 +11,7 @@ from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 
 from parsers.itau_personnalite import parse_itau_personnalite as parse_itau_personnalite_text
 
+
 app = FastAPI(title="ELLA PDF Extractor (Local Test Service)")
 
 
