@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import os
 import re
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import pdfplumber
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 
 from parsers.itau_personnalite import parse_itau_personnalite as parse_itau_personnalite_text
 
@@ -184,8 +185,22 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/version")
+def version() -> dict[str, str]:
+    return {
+        "name": "ella-extractor",
+        "version": os.getenv("VERSION", "dev"),
+        "gitSha": os.getenv("GIT_SHA", "unknown"),
+        "buildTime": os.getenv("BUILD_TIME", "unknown"),
+    }
+
+
 @app.post("/extract/itau-personnalite")
-async def extract_itau_personnalite(file: UploadFile = File(...)) -> dict[str, Any]:
+async def extract_itau_personnalite(
+    response: Response,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    response.headers["X-Parser-Version"] = os.getenv("VERSION", "dev")
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Invalid content-type. Expected application/pdf")
 
@@ -219,7 +234,7 @@ async def extract_itau_personnalite(file: UploadFile = File(...)) -> dict[str, A
         method_used = "mixed:" + "+".join(unique_methods)
 
     return {
-        "bank": "ITAU_PERSONNALITE",
+        "bank": "itau_personnalite",
         "filename": file.filename,
         "pages": pages,
         "textLength": len(full_text),
@@ -236,7 +251,11 @@ async def extract_itau_personnalite(file: UploadFile = File(...)) -> dict[str, A
 
 
 @app.post("/parse/itau-personnalite")
-async def parse_itau_personnalite(file: UploadFile = File(...)) -> dict[str, Any]:
+async def parse_itau_personnalite(
+    response: Response,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    response.headers["X-Parser-Version"] = os.getenv("VERSION", "dev")
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Invalid content-type. Expected application/pdf")
 
