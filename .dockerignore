@@ -1,0 +1,13 @@
+# Keep the Docker build context small for Render
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.git/
+.gitignore
+
+# Local-only artifacts
+tests/
+pytest.ini
+README.md

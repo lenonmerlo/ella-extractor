@@ -1,5 +1,34 @@
 # Extractor (serviço local de extração/parsing de PDFs)
 
+## Deploy no Render (Docker Web Service)
+
+Este microserviço pode ser deployado no Render como um **Web Service (Docker)** separado.
+
+Configuração recomendada no Render:
+
+- **Runtime**: Docker
+- **Root Directory**: `extractor`
+- **Dockerfile Path**: `extractor/Dockerfile` (ou apenas `Dockerfile`, dependendo da UI)
+- **Health Check Path**: `/health`
+- **Port**: o Render injeta a porta em `PORT`; o container sobe com `--port ${PORT:-8000}`.
+
+Observação: não há dependências em arquivos fora de `extractor/`.
+
+### Exemplos de curl
+
+Defina a URL do serviço (Render):
+
+- PowerShell:
+  - `$BASE_URL = "https://SEU-SERVICO.onrender.com"`
+
+Health:
+
+- `curl -s "$BASE_URL/health"`
+
+Extrair texto (upload de PDF):
+
+- `curl -s -X POST "$BASE_URL/extract/itau-personnalite" -F "file=@/caminho/para/arquivo.pdf;type=application/pdf"`
+
 Este diretório contém um microserviço FastAPI **local** para:
 
 - extrair texto de PDFs (via `pdfplumber`), e
@@ -27,7 +56,7 @@ No diretório `extractor/`:
 
 No diretório `extractor/`:
 
-- `uvicorn app:app --reload --port 8001`
+- `uvicorn app:app --reload --host 0.0.0.0 --port 8001`
 
 Endpoints principais:
 
