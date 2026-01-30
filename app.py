@@ -11,6 +11,7 @@ import pdfplumber
 from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 
 from parsers.itau_personnalite import parse_itau_personnalite as parse_itau_personnalite_text
+from parsers.sicredi import parse_sicredi
 
 
 app = FastAPI(title="ELLA PDF Extractor (Local Test Service)")
@@ -313,5 +314,51 @@ async def parse_itau_personnalite(
     if not result.get("transactions"):
         result["reason"] = "UNSUPPORTED_LAYOUT"
     # include filename for convenience in local testing
+    result["filename"] = file.filename
+    return result
+
+
+@app.post("/parse/sicredi")
+async def parse_sicredi_invoice(
+    response: Response,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    """Recebe um PDF da fatura Sicredi, extrai o texto e retorna dados estruturados."""
+    response.headers["X-Parser-Version"] = os.getenv("VERSION", "dev")
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="Invalid content-type. Expected application/pdf")
+
+    pdf_bytes = await file.read()
+    logger.info(
+        "[parse/sicredi] filename=%s content_type=%s bytes=%d",
+        file.filename,
+        file.content_type,
+        len(pdf_bytes) if pdf_bytes else 0,
+    )
+    if not pdf_bytes:
+        raise HTTPException(status_code=400, detail="Empty file")
+
+    page_texts: list[str] = []
+    try:
+        with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                extracted, _method = extract_page_text(page)
+                page_texts.append(extracted)
+    except Exception:
+        if _looks_like_pdf(pdf_bytes):
+            raise HTTPException(status_code=422, detail={"reason": "UNREADABLE_PDF", "message": "Failed to read PDF"})
+        raise HTTPException(status_code=400, detail="Failed to read PDF")
+
+    raw_text = "\n\n".join(page_texts)
+
+    # Save raw text fixture for reproducible debugging/tests (same approach as Itaú Personalité).
+    fixture_path = Path(__file__).resolve().parent / "tests" / "fixtures" / "sicredi_reference.txt"
+    fixture_path.parent.mkdir(parents=True, exist_ok=True)
+    fixture_path.write_text(raw_text, encoding="utf-8")
+
+    result = parse_sicredi(raw_text)
+
+    if not result.get("transactions"):
+        result["reason"] = "UNSUPPORTED_LAYOUT"
     result["filename"] = file.filename
     return result
