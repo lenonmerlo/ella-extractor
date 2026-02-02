@@ -6,6 +6,7 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY app.py /app/app.py
+COPY ella_extractor/ /app/ella_extractor/
 COPY parsers/ /app/parsers/
 
 EXPOSE 8000
