@@ -7,9 +7,6 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable
 
-# NOTE: This module is kept for backwards compatibility.
-# Canonical implementation lives in `parsers.invoices.itau_personnalite`.
-
 
 _CID_PATTERN = re.compile(r"\(cid:\d+\)")
 
@@ -866,7 +863,3 @@ def parse_itau_personnalite(text: str) -> tuple[dict[str, Any], list[str], dict[
     }
 
     return result, warnings, debug
-
-
-# Backwards-compatible re-export (canonical implementation)
-from parsers.invoices.itau_personnalite import *  # noqa: F401,F403,E402

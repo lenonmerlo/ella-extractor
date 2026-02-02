@@ -5,9 +5,6 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-# NOTE: This module is kept for backwards compatibility.
-# Canonical implementation lives in `parsers.invoices.sicredi`.
-
 
 _MONTHS_PT: dict[str, int] = {
     "jan": 1,
@@ -440,7 +437,3 @@ def parse_sicredi(text: str) -> dict[str, Any]:
         "total": total,
         "transactions": txs,
     }
-
-
-# Backwards-compatible re-export (canonical implementation)
-from parsers.invoices.sicredi import *  # noqa: F401,F403,E402
