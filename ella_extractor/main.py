@@ -5,6 +5,7 @@ import os
 
 from fastapi import FastAPI
 
+from ella_extractor.routers.bradesco_bank_statement import router as bradesco_router
 from ella_extractor.routers.c6_bank_statement import router as c6_router
 from ella_extractor.routers.itau_personnalite import router as itau_personnalite_router
 from ella_extractor.routers.nubank_bank_statement import router as nubank_router
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
     app.include_router(sicredi_router)
     app.include_router(c6_router)
     app.include_router(nubank_router)
+    app.include_router(bradesco_router)
 
     return app
 
