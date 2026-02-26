@@ -56,7 +56,12 @@ No diretório `extractor/`:
 
 No diretório `extractor/`:
 
-- `uvicorn app:app --reload --host 0.0.0.0 --port 8001`
+- `uvicorn app:app --reload --host 0.0.0.0 --port 8000`
+
+Observações:
+
+- O `Dockerfile` expõe `8000` e sobe com `--port ${PORT:-8000}`.
+- O backend, por padrão, espera o extractor em `http://localhost:8000` (override via `ELLA_EXTRACTOR_URL`).
 
 Endpoints principais:
 
