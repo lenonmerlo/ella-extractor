@@ -379,11 +379,20 @@ def extract_transactions(text: str) -> list[dict[str, Any]]:
             continue
 
         rest_wo_amount = rest[: amount_m.start()].strip()
-        # Some PDFs split: description is on the previous line, and the tx line only contains the amount.
-        if not rest_wo_amount and last_context_line:
-            rest_wo_amount = last_context_line
-            last_context_line = None
-        desc, _purchase_type, installment, card_final_override = _parse_tx_line(rest_wo_amount)
+        desc_source = rest_wo_amount
+
+        # Some PDFs split: description is on the previous line, and the tx line only contains
+        # only purchase type + amount (e.g. "Online -R$ 4,43").
+        # In these cases, recover description from previous context line.
+        if last_context_line:
+            looks_like_only_purchase_type = bool(
+                re.fullmatch(r"(?i)(online|presencial)", rest_wo_amount or "")
+            )
+            if not rest_wo_amount or looks_like_only_purchase_type:
+                desc_source = last_context_line
+                last_context_line = None
+
+        desc, _purchase_type, installment, card_final_override = _parse_tx_line(desc_source)
         if _should_skip_description(desc):
             continue
 
