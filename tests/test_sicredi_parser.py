@@ -92,6 +92,23 @@ def test_extract_transactions_keeps_negative_amount_for_credits() -> None:
     assert txs[0]["amount"] == -50.00
 
 
+def test_extract_transactions_recovers_description_from_previous_line_when_only_online_and_amount() -> None:
+    text = """
+    Vencimento: 25/02/2026
+    Transações
+    Data e hora Cidade Compra Descrição Parcela Valor em reais
+    Apple Com/bill Sao Paulo
+    08/jan 00:35 Online -R$ 4,43
+    Bra
+    """.strip()
+
+    txs = extract_transactions(text)
+    assert len(txs) == 1
+    assert txs[0]["date"] == "2026-01-08"
+    assert txs[0]["amount"] == -4.43
+    assert txs[0]["description"] == "Apple Com/bill Sao Paulo"
+
+
 def test_parse_sicredi_returns_structured_payload() -> None:
     text = """
     Resumo da fatura
