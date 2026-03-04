@@ -16,11 +16,11 @@ def test_reference_invoice_sicredi() -> None:
     result = parse_sicredi(text)
 
     assert result["bank"] == "SICREDI"
-    assert result["dueDate"] == "2025-11-25"
-    assert result["total"] == 12068.55
+    assert result["dueDate"] == "2026-02-25"
+    assert result["total"] == 9944.8
 
     txs = result.get("transactions", [])
-    assert len(txs) == 101
+    assert len(txs) == 103
 
     for tx in txs:
         assert "date" in tx
