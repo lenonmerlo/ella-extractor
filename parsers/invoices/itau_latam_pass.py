@@ -313,11 +313,41 @@ def parse_itau_latam_pass(text: str) -> tuple[dict[str, Any], list[str], dict[st
         "sampleLines": [ln for ln in window.split("\n") if ln][:12],
     }
 
+    signed_sum = round(sum(float(t.get("amount", 0) or 0) for t in txs), 2)
+    expenses_total = round(sum(float(t.get("amount", 0) or 0) for t in txs if float(t.get("amount", 0) or 0) > 0), 2)
+    credits_total_abs = round(sum(abs(float(t.get("amount", 0) or 0)) for t in txs if float(t.get("amount", 0) or 0) < 0), 2)
+
+    reconciliation_diff = None
+    is_balanced = None
+    if total is not None:
+        reconciliation_diff = round(float(total) - signed_sum, 2)
+        is_balanced = abs(reconciliation_diff) <= 0.01
+
     result: dict[str, Any] = {
+        "parserContractVersion": "1.0.0",
         "bank": "itau_latam_pass",
         "dueDate": (due.isoformat() if due else None),
         "total": total,
         "transactions": txs,
+        "summary": {
+            "invoiceTotal": total,
+            "expensesTotal": expenses_total,
+            "creditsTotalAbs": credits_total_abs,
+            "signedTransactionsTotal": signed_sum,
+            "transactionCount": len(txs),
+        },
+        "reconciliation": {
+            "difference": reconciliation_diff,
+            "isBalanced": is_balanced,
+            "threshold": 0.01,
+        },
+        "diagnostics": {
+            "sourceParser": "parsers.invoices.itau_latam_pass",
+            "notes": [
+                "Contract v1 is additive and backward-compatible.",
+                "Top-level fields bank/dueDate/total/transactions are preserved.",
+            ],
+        },
         "warnings": warnings,
         "debug": debug,
     }
