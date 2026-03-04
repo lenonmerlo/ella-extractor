@@ -54,14 +54,22 @@ def _flat(text: str) -> str:
 
 def extract_due_date(text: str) -> date | None:
     n = _flat(text)
-    m = re.search(r"(?i)\bvencimento\s*:\s*(\d{2})/(\d{2})/(\d{4})\b", n)
-    if not m:
-        return None
-    dd, mm, yyyy = int(m.group(1)), int(m.group(2)), int(m.group(3))
-    try:
-        return date(yyyy, mm, dd)
-    except ValueError:
-        return None
+    patterns: list[re.Pattern[str]] = [
+        re.compile(r"(?i)\b(?:com\s+vencimento\s+em|vencimento|data\s+de\s+vencimento)\s*(?:em)?\s*[:：-]?\s*(\d{2})/(\d{2})/(\d{4})\b"),
+        re.compile(r"(?i)\bvencimento\b[^0-9]{0,30}(\d{2})/(\d{2})/(\d{4})\b"),
+    ]
+
+    for p in patterns:
+        m = p.search(n)
+        if not m:
+            continue
+        dd, mm, yyyy = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        try:
+            return date(yyyy, mm, dd)
+        except ValueError:
+            continue
+
+    return None
 
 
 def _parse_brl_money(value: str) -> Decimal | None:
@@ -853,11 +861,41 @@ def parse_itau_personnalite(text: str) -> tuple[dict[str, Any], list[str], dict[
         "cardBlockTransactionsCount": len(card_block_txs),
     }
 
+    signed_sum = round(sum(float(t.get("amount", 0) or 0) for t in txs), 2)
+    expenses_total = round(sum(float(t.get("amount", 0) or 0) for t in txs if float(t.get("amount", 0) or 0) > 0), 2)
+    credits_total_abs = round(sum(abs(float(t.get("amount", 0) or 0)) for t in txs if float(t.get("amount", 0) or 0) < 0), 2)
+
+    reconciliation_diff = None
+    is_balanced = None
+    if total is not None:
+        reconciliation_diff = round(float(total) - signed_sum, 2)
+        is_balanced = abs(reconciliation_diff) <= 0.01
+
     result: dict[str, Any] = {
+        "parserContractVersion": "1.0.0",
         "bank": "itau_personnalite",
         "dueDate": (due.isoformat() if due else None),
         "total": total,
         "transactions": txs,
+        "summary": {
+            "invoiceTotal": total,
+            "expensesTotal": expenses_total,
+            "creditsTotalAbs": credits_total_abs,
+            "signedTransactionsTotal": signed_sum,
+            "transactionCount": len(txs),
+        },
+        "reconciliation": {
+            "difference": reconciliation_diff,
+            "isBalanced": is_balanced,
+            "threshold": 0.01,
+        },
+        "diagnostics": {
+            "sourceParser": "parsers.invoices.itau_personnalite",
+            "notes": [
+                "Contract v1 is additive and backward-compatible.",
+                "Top-level fields bank/dueDate/total/transactions are preserved.",
+            ],
+        },
         "warnings": warnings,
         "debug": debug,
     }
