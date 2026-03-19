@@ -13,7 +13,7 @@ from ella_extractor.services.fixtures import write_text_fixture
 from ella_extractor.services.pdf_extraction import extract_pdf_pages_text, looks_like_pdf
 
 
-router = APIRouter()
+router = APIRouter(tags=["C6"])
 logger = logging.getLogger("ella-extractor")
 
 

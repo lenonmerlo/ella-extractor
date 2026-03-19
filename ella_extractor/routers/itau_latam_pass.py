@@ -18,7 +18,7 @@ from ella_extractor.services.pdf_extraction import (
 )
 
 
-router = APIRouter()
+router = APIRouter(tags=["Itau"])
 logger = logging.getLogger("ella-extractor")
 
 
