@@ -7,7 +7,9 @@ from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 
-from parsers.banco_do_brasil import parse_banco_do_brasil
+from parsers.banco_do_brasil_bank_statement import (
+    parse_banco_do_brasil_bank_statement as parse_banco_do_brasil_bank_statement_text,
+)
 
 from ella_extractor.services.fixtures import write_text_fixture
 from ella_extractor.services.pdf_extraction import extract_pdf_pages_text, looks_like_pdf
@@ -17,12 +19,12 @@ router = APIRouter(tags=["Banco do Brasil"])
 logger = logging.getLogger("ella-extractor")
 
 
-@router.post("/parse/banco-do-brasil")
-async def parse_banco_do_brasil_invoice(
+@router.post("/parse/banco-do-brasil-bank-statement")
+async def parse_banco_do_brasil_bank_statement(
     response: Response,
     file: UploadFile = File(...),
 ) -> dict[str, Any]:
-    """Recebe um PDF da fatura BB/Ourocard, extrai texto e retorna dados estruturados."""
+    """Recebe um PDF do extrato BB, extrai texto e retorna dados estruturados."""
 
     response.headers["X-Parser-Version"] = os.getenv("VERSION", "dev")
     if file.content_type != "application/pdf":
@@ -30,7 +32,7 @@ async def parse_banco_do_brasil_invoice(
 
     pdf_bytes = await file.read()
     logger.info(
-        "[parse/banco-do-brasil] filename=%s content_type=%s bytes=%d",
+        "[parse/banco-do-brasil-bank-statement] filename=%s content_type=%s bytes=%d",
         file.filename,
         file.content_type,
         len(pdf_bytes) if pdf_bytes else 0,
@@ -48,12 +50,17 @@ async def parse_banco_do_brasil_invoice(
     raw_text = "\n\n".join(page_texts)
 
     base_dir = Path(__file__).resolve().parents[2]  # extractor/
-    write_text_fixture(filename="banco_do_brasil_reference.txt", raw_text=raw_text, base_dir=base_dir)
+    write_text_fixture(filename="banco_do_brasil_bank_statement_reference.txt", raw_text=raw_text, base_dir=base_dir)
 
-    result = parse_banco_do_brasil(raw_text)
+    result, warnings, debug = parse_banco_do_brasil_bank_statement_text(raw_text)
+
+    if warnings:
+        result["warnings"] = warnings
+    if debug:
+        result["debug"] = debug
 
     if not result.get("transactions"):
-        result["reason"] = "UNSUPPORTED_LAYOUT"
+        result["reason"] = result.get("reason") or "UNSUPPORTED_LAYOUT"
 
     result["filename"] = file.filename
     return result
